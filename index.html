@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
+
     <!-- Latest compiled and minified CSS -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
 
@@ -10,13 +12,16 @@
     <!-- Latest compiled and minified JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 
+    <!-- Underscore.js for Knockout template binding -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+
     <!--knockoutJS-->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.4.0/knockout-min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.4.2/knockout-min.js"></script>
 </head>
 <body>
     <div class="container">
-        <h2>Your seat reservations (<span data-bind="text: seats().length"></span>)</h2>
-        
+        <div data-bind="template: { name: 'tableTitle' }"></div>
+        <h3>Your seat reservations (<span data-bind="text: seats().length"></span>)</h3>
         <table class="table">
             <thead>
                 <tr>
@@ -35,15 +40,40 @@
                 </tr>
             </tbody>
         </table>
-
         <button class="btn btn-success" data-bind="click: addSeat, enable: seats().length < 5">Reserve another seat</button>
-
         <h3 data-bind="visible: totalSurcharge() > 0">
             Total surcharge: $<span data-bind="text: totalSurcharge().toFixed(2)"></span>
         </h3>
     </div>
 
+    <script type="text/html" id="tableTitle">
+        <h2><%= appTitle %></h2>
+    </script>
+
     <script>
+
+        /* ---- Begin integration of Underscore template engine with Knockout. Could go in a separate file of course. ---- */
+        ko.underscoreTemplateEngine = function () { }
+        ko.underscoreTemplateEngine.prototype = ko.utils.extend(new ko.templateEngine(), {
+            renderTemplateSource: function (templateSource, bindingContext, options) {
+                // Precompile and cache the templates for efficiency
+                var precompiled = templateSource['data']('precompiled');
+                if (!precompiled) {
+                    precompiled = _.template("<% with($data) { %> " + templateSource.text() + " <% } %>");
+                    templateSource['data']('precompiled', precompiled);
+                }
+                // Run the template and parse its output into an array of DOM elements
+                var renderedMarkup = precompiled(bindingContext).replace(/\s+/g, " ");
+                return ko.utils.parseHtmlFragment(renderedMarkup);
+            },
+            createJavaScriptEvaluatorBlock: function (script) {
+                return "<%= " + script + " %>";
+            }
+        });
+        ko.setTemplateEngine(new ko.underscoreTemplateEngine());
+        /* ---- End integration of Underscore template engine with Knockout ---- */
+
+        ko.applyBindings(new ReservationsViewModel());
 
         // Class to represent a row in the seat reservations grid
         function SeatReservation(name, initialMeal) {
@@ -60,6 +90,8 @@
         // Overall viewmodel for this screen, along with initial state
         function ReservationsViewModel() {
             var self = this;
+
+            self.appTitle = 'Knockout.js demo with Underscore.js template engine';
 
             // Non-editable catalog data - would come from the server
             self.availableMeals = [
@@ -88,8 +120,6 @@
             }
             self.removeSeat = function (seat) { self.seats.remove(seat) }
         }
-
-        ko.applyBindings(new ReservationsViewModel());
 
     </script>
 </body>
